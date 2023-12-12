@@ -2,9 +2,11 @@ import configparser
 import os
 import pickle
 import time
-
+from datetime import datetime
+import pytz
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from bs4 import BeautifulSoup
 
 # Read config
 config = configparser.ConfigParser()
@@ -19,7 +21,7 @@ password = config.get('main', 'password')
 
 
 # Set up driver
-PATH = "/opt/homebrew/bin/chromedriver"
+PATH = config.get('main', 'PATH')
 driver = webdriver.Chrome(PATH)
 
 
@@ -78,28 +80,47 @@ insight_element.click()
 # Wait for insights to load
 time.sleep(5)
 
-# Get overview, reach, engagement, and profile visit elements
-overview = driver.find_element(By.CSS_SELECTOR, "body > div.x1n2onr6.xzkaem6 > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div.x7r02ix.xf1ldfh.x131esax.xdajt7p.xxfnqb6.xb88tzc.xw2csxc.x1odjw0f.x5fp0pe > div > div > div.x9f619.xjbqb8w.x78zum5.x168nmei.x13lgxp2.x5pf9jr.xo71vjh.x1n2onr6.xw2csxc.x1odjw0f.x1iyjqo2.x2lwn1j.xeuugli.xdt5ytf.xqjyukv.x1qjc9v5.x1oa3qoh.x1nhvcw1 > div > div.wbloks_1.wbloks_78.wbloks_76 > div:nth-child(6)")
-reach = driver.find_element(By.CSS_SELECTOR, "body > div.x1n2onr6.xzkaem6 > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div.x7r02ix.xf1ldfh.x131esax.xdajt7p.xxfnqb6.xb88tzc.xw2csxc.x1odjw0f.x5fp0pe > div > div > div.x9f619.xjbqb8w.x78zum5.x168nmei.x13lgxp2.x5pf9jr.xo71vjh.x1n2onr6.xw2csxc.x1odjw0f.x1iyjqo2.x2lwn1j.xeuugli.xdt5ytf.xqjyukv.x1qjc9v5.x1oa3qoh.x1nhvcw1 > div > div.wbloks_1.wbloks_78.wbloks_76 > div:nth-child(8)")
-engagement = driver.find_element(By.CSS_SELECTOR, "body > div.x1n2onr6.xzkaem6 > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div.x7r02ix.xf1ldfh.x131esax.xdajt7p.xxfnqb6.xb88tzc.xw2csxc.x1odjw0f.x5fp0pe > div > div > div.x9f619.xjbqb8w.x78zum5.x168nmei.x13lgxp2.x5pf9jr.xo71vjh.x1n2onr6.xw2csxc.x1odjw0f.x1iyjqo2.x2lwn1j.xeuugli.xdt5ytf.xqjyukv.x1qjc9v5.x1oa3qoh.x1nhvcw1 > div > div.wbloks_1.wbloks_78.wbloks_76 > div:nth-child(10) > div")
-profile_visit = driver.find_element(By.CSS_SELECTOR, "body > div.x1n2onr6.xzkaem6 > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div.x7r02ix.xf1ldfh.x131esax.xdajt7p.xxfnqb6.xb88tzc.xw2csxc.x1odjw0f.x5fp0pe > div > div > div.x9f619.xjbqb8w.x78zum5.x168nmei.x13lgxp2.x5pf9jr.xo71vjh.x1n2onr6.xw2csxc.x1odjw0f.x1iyjqo2.x2lwn1j.xeuugli.xdt5ytf.xqjyukv.x1qjc9v5.x1oa3qoh.x1nhvcw1 > div > div.wbloks_1.wbloks_78.wbloks_76 > div:nth-child(12)")
+all = driver.find_element(By.CSS_SELECTOR, ".x71s49j")
 
-# Get text from elements
-overview_text = overview.text
-reach_text = reach.text
-engagement_text = engagement.text
-profile_visit_text = profile_visit.text
+# Get the page source after the JavaScript has executed 
+page_source = driver.page_source 
+ 
+# Use BeautifulSoup to parse the HTML 
+soup = BeautifulSoup(page_source, 'html.parser') 
+results = soup.find_all(attrs={'data-bloks-name': 'bk.components.Flexbox'})
 
-# Print the results
-print("Overview:", overview_text)
-print("------------------")
-print("Reach:", reach_text)
-print("------------------")
-print("Engagement:", engagement_text)
-print("------------------")
-print("Profile Visits:", profile_visit_text)
-print("------------------")
+# ---------------------- Debug ----------------------
+hk_timezone = pytz.timezone('Asia/Hong_Kong')
+current_datetime = datetime.now(hk_timezone)
+formatted_date = current_datetime.strftime("%Y-%m-%d")
+formatted_time = current_datetime.strftime("%H-%M-%S")
 
+directory = "log"
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
+file_path_css = os.path.join(directory, "css", f"{formatted_date}_{formatted_time}_css.txt")
+file_path_html = os.path.join(directory, "html", f"{formatted_date}_{formatted_time}_html.txt")
+file_path_bs = os.path.join(directory, "bs4", f"{formatted_date}_{formatted_time}_bs4.txt")
+
+# Create the subdirectories if they don't exist
+for path in [os.path.dirname(file_path_css), os.path.dirname(file_path_html), os.path.dirname(file_path_bs)]:
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+with open(file_path_css, 'w') as f:
+    all_text = all.text
+    f.write(all_text)
+
+with open(file_path_html, 'w') as f:
+    f.write(soup.prettify())
+
+with open(file_path_bs, 'w', encoding='utf-8') as file:
+    for result in results:
+        text = result.get_text()
+        file.write(text + '\n')
+
+# ---------------------- Debug ----------------------
 # Save cookies
 pickle.dump(driver.get_cookies() , open("cookies.pkl","wb"))
 

@@ -3,3 +3,4 @@ config.ini
 hostname
 hosts
 resolv.conf
+log/
