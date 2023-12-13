@@ -9,6 +9,8 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
 
 def read_config():
@@ -53,9 +55,12 @@ def login(driver):
         # TODO: Delete cookies to ensure a fresh login
         
         driver.get("https://www.instagram.com/")
-        time.sleep(5)
-
-        username_field = driver.find_element(By.CSS_SELECTOR, "input[name='username']")
+        
+        WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "input[name='username']")))
+        
+        username_field = (driver.find_element(By.CSS_SELECTOR, "input[name='username']"))
         password_field = driver.find_element(By.CSS_SELECTOR, "input[name='password']")
 
         username_field.clear()
@@ -80,10 +85,12 @@ def login(driver):
 
         save_config(config)
         
-        time.sleep(3)
+        WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//button[contains(text(),'Not Now')]")))
 
         # close notification box
-        driver.find_element(By.XPATH, "//button[contains(text(),'Not Now')]")
+        driver.find_element(By.XPATH, "//button[contains(text(),'Not Now')]").click()
     else:
         load_cookies(driver)
 
@@ -94,11 +101,12 @@ def save_config(config):
         config.write(configfile)
 
 
-def get_insights(driver):
+def get_insights(driver, link):
     """Navigates to the target link and extracts the insights data."""
-    config = read_config()
-    driver.get(config.get('main', 'target_link'))
-    time.sleep(5)
+
+    driver.get(link)
+
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[@role='button' and text()='View Insights']")))
     
     insight_element = driver.find_element(By.XPATH, "//div[@role='button' and text()='View Insights']")
     insight_element.click()
@@ -113,20 +121,29 @@ def get_insights(driver):
     return all, soup, results
 
 
-def save_debug_info(all, soup, results):
+def save_debug_info(all, soup, results, link):
     """Saves the insights data and HTML/CSS source to files for debugging purposes."""
     hk_timezone = pytz.timezone('Asia/Hong_Kong')
     current_datetime = datetime.now(hk_timezone)
     formatted_date = current_datetime.strftime("%Y-%m-%d")
     formatted_time = current_datetime.strftime("%H-%M-%S")
 
-    directory = "log"
+    # Extract unique_id from the link
+    unique_id = link.split("/")[-2]
+
+    # Define the directory path
+    directory = 'log'
+    subdirectory = f"log/{unique_id}"
+    # Create the directory if it doesn't exist
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    file_path_css = os.path.join(directory, "css", f"{formatted_date}_{formatted_time}_css.txt")
-    file_path_html = os.path.join(directory, "html", f"{formatted_date}_{formatted_time}_html.txt")
-    file_path_bs = os.path.join(directory, "bs4", f"{formatted_date}_{formatted_time}_bs4.txt")
+    if not os.path.exists(subdirectory):
+        os.makedirs(subdirectory)
+
+    file_path_css = os.path.join(subdirectory, "css", f"{unique_id}_{formatted_date}_{formatted_time}_css.txt")
+    file_path_html = os.path.join(subdirectory, "html", f"{unique_id}_{formatted_date}_{formatted_time}_html.txt")
+    file_path_bs = os.path.join(subdirectory, "bs4", f"{unique_id}_{formatted_date}_{formatted_time}_bs4.txt")
 
     for path in [os.path.dirname(file_path_css), os.path.dirname(file_path_html), os.path.dirname(file_path_bs)]:
         if not os.path.exists(path):
@@ -153,7 +170,8 @@ def save_debug_info(all, soup, results):
     except:
         print(f"Error saving BS4 results to '{file_path_bs}'.")
 
-    print('Info saved')
+    print("Link:",link)
+    print("Unique ID:",unique_id,'Info saved')
 
 def save_cookies(driver):
     """Saves the current cookies to the 'cookies.pkl' file."""
@@ -169,9 +187,13 @@ def main():
 
     login(driver)
 
-    all, soup, results = get_insights(driver)
+    config = read_config()
 
-    save_debug_info(all, soup, results)
+    print(config.get('main', 'target_link'))
+    links = config.get('main', 'target_link').split('\n')[1:]
+    for link in links:
+        all, soup, results = get_insights(driver, link)
+        save_debug_info(all, soup, results, link)
 
     save_cookies(driver)
 
