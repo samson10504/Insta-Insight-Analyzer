@@ -23,6 +23,7 @@ def setup_driver():
     config = read_config()
     headless = config.get('main', 'headless')
     options = ChromeOptions()
+    options.add_argument('--no-sandbox')
     if headless == "True":
         options.add_argument("--headless")
     PATH = config.get('main', 'PATH')
@@ -77,6 +78,14 @@ def login(driver):
         save_info_button.click()
         config.set('main', 'Islogin', 'True')
 
+        save_config(config)
+        
+        time.sleep(3)
+
+        # close notification box
+        driver.find_element(By.XPATH, "//button[contains(text(),'Not Now')]")
+    else:
+        load_cookies(driver)
 
 def save_config(config):
     """Saves the updated configuration to the configuration file."""
@@ -90,8 +99,8 @@ def get_insights(driver):
     config = read_config()
     driver.get(config.get('main', 'target_link'))
     time.sleep(5)
-
-    insight_element = driver.find_element(By.XPATH, "/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/div[2]/div/section[1]/div/section/div")
+    
+    insight_element = driver.find_element(By.XPATH, "//div[@role='button' and text()='View Insights']")
     insight_element.click()
 
     time.sleep(5)
@@ -144,6 +153,7 @@ def save_debug_info(all, soup, results):
     except:
         print(f"Error saving BS4 results to '{file_path_bs}'.")
 
+    print('Info saved')
 
 def save_cookies(driver):
     """Saves the current cookies to the 'cookies.pkl' file."""
@@ -156,7 +166,6 @@ def save_cookies(driver):
 def main():
     """Runs the main program."""
     driver = setup_driver()
-    load_cookies(driver)
 
     login(driver)
 
@@ -165,7 +174,6 @@ def main():
     save_debug_info(all, soup, results)
 
     save_cookies(driver)
-    save_config(read_config())
 
     driver.quit()
 
