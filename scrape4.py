@@ -189,8 +189,7 @@ def main():
 
     config = read_config()
 
-    print(config.get('main', 'target_link'))
-    links = config.get('main', 'target_link').split('\n')[1:]
+    links = config.get('links', 'target_links').split('\n')[1:]
     for link in links:
         all, soup, results = get_insights(driver, link)
         save_debug_info(all, soup, results, link)
