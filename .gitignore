@@ -4,3 +4,4 @@ hostname
 hosts
 resolv.conf
 log/
+.DS_Store
