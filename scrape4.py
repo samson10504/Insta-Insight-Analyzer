@@ -28,6 +28,9 @@ def setup_driver():
     options.add_argument('--no-sandbox')
     if headless == "True":
         options.add_argument("--headless")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("window-size=1920,1080")
+
     PATH = config.get('main', 'PATH')
     driver = webdriver.Chrome(PATH,options=options)
     return driver
@@ -41,6 +44,7 @@ def load_cookies(driver):
             cookies = pickle.load(open("cookies.pkl", "rb"))
             for cookie in cookies:
                 driver.add_cookie(cookie)
+            print("Cookies loaded")
         except:
             print("Error loading cookies from 'cookies.pkl'.")
 
@@ -56,7 +60,7 @@ def login(driver):
         
         driver.get("https://www.instagram.com/")
         
-        WebDriverWait(driver, 3).until(
+        WebDriverWait(driver, 10).until(
             EC.presence_of_element_located(
                 (By.CSS_SELECTOR, "input[name='username']")))
         
@@ -84,13 +88,15 @@ def login(driver):
         config.set('main', 'Islogin', 'True')
 
         save_config(config)
+        save_cookies(driver)
         
-        WebDriverWait(driver, 3).until(
+        WebDriverWait(driver, 5).until(
             EC.presence_of_element_located(
                 (By.XPATH, "//button[contains(text(),'Not Now')]")))
 
         # close notification box
         driver.find_element(By.XPATH, "//button[contains(text(),'Not Now')]").click()
+        time.sleep(2)
     else:
         load_cookies(driver)
 
@@ -106,22 +112,32 @@ def get_insights(driver, link):
 
     driver.get(link)
 
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[@role='button' and text()='View Insights']")))
+    WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.XPATH, "//div[@role='button' and text()='View Insights']")))
     
     insight_element = driver.find_element(By.XPATH, "//div[@role='button' and text()='View Insights']")
     insight_element.click()
+    
 
-    time.sleep(5)
+    # wait the insight layout to be loaded
+    
+    try:
+        WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.XPATH, "//div[@data-bloks-name='bk.components.Collection']")))
+        time.sleep(2)   
+    except Exception as e:
+        print("Button click timeout")
+    
+    try:
+        # insight_info = driver.find_element(By.CSS_SELECTOR, ".x71s49j")
+        xpath = '//div[@data-bloks-name="bk.components.Flexbox" and @class="wbloks_1" and contains(@style, "pointer-events: none; width: 100%; height: 100%; flex-direction: column;")]'
+        insight_info = driver.find_elements(By.XPATH, xpath)
 
-    all = driver.find_element(By.CSS_SELECTOR, ".x71s49j")
-    page_source = driver.page_source
-    soup = BeautifulSoup(page_source, 'html.parser')
-    results = soup.find_all(attrs={'data-block-name': 'bk.components.Flexbox'})
+        return insight_info
+    except Exception as e:
+        print("CSS selector not found",str(e)) # print("An exception occurred:", str(e))
+        return None
 
-    return all, soup, results
-
-
-def save_debug_info(all, soup, results, link):
+# def save_debug_info(all, soup, results, link):
+def save_debug_info(insight_info, link):
     """Saves the insights data and HTML/CSS source to files for debugging purposes."""
     hk_timezone = pytz.timezone('Asia/Hong_Kong')
     current_datetime = datetime.now(hk_timezone)
@@ -140,43 +156,34 @@ def save_debug_info(all, soup, results, link):
 
     if not os.path.exists(subdirectory):
         os.makedirs(subdirectory)
-
-    file_path_css = os.path.join(subdirectory, "css", f"{unique_id}_{formatted_date}_{formatted_time}_css.txt")
-    file_path_html = os.path.join(subdirectory, "html", f"{unique_id}_{formatted_date}_{formatted_time}_html.txt")
-    file_path_bs = os.path.join(subdirectory, "bs4", f"{unique_id}_{formatted_date}_{formatted_time}_bs4.txt")
-
-    for path in [os.path.dirname(file_path_css), os.path.dirname(file_path_html), os.path.dirname(file_path_bs)]:
+    
+    # file_path_css = os.path.join(subdirectory, "css", f"{unique_id}_{formatted_date}_{formatted_time}_css.txt")
+    # file_path_html = os.path.join(subdirectory, "html", f"{unique_id}_{formatted_date}_{formatted_time}_html.txt")
+    # file_path_bs = os.path.join(subdirectory, "bs4", f"{unique_id}_{formatted_date}_{formatted_time}_bs4.txt")
+    
+    file_path = os.path.join(subdirectory, f"{unique_id}_{formatted_date}_{formatted_time}.txt")
+    # for path in [os.path.dirname(file_path_css), os.path.dirname(file_path_html), os.path.dirname(file_path_bs)]:
+    for path in [os.path.dirname(file_path)]:
         if not os.path.exists(path):
             os.makedirs(path)
 
-    try:
-        with open(file_path_css, 'w') as f:
-            all_text = all.text
-            f.write(all_text)
-    except:
-        print(f"Error saving CSS to '{file_path_css}'.")
-
-    try:
-        with open(file_path_html, 'w') as f:
-            f.write(soup.prettify())
-    except:
-        print(f"Error saving HTML to '{file_path_html}'.")
-
-    try:
-        with open(file_path_bs, 'w') as file:
-            for result in results:
-                text = result.get_text()
-                file.write(text + '\n')
-    except:
-        print(f"Error saving BS4 results to '{file_path_bs}'.")
-
     print("Link:",link)
-    print("Unique ID:",unique_id,'Info saved')
+    try:
+        with open(file_path, 'w') as file:
+            for result in insight_info:
+                text = result.text
+                file.write(text + '\n')
+        print("Unique ID:",unique_id,'Info saved')
+
+    except Exception as e:
+        print(f"Error saving BS4 results to '{file_path}'.")
+        print(str(e)) 
 
 def save_cookies(driver):
     """Saves the current cookies to the 'cookies.pkl' file."""
     try:
         pickle.dump(driver.get_cookies(), open("cookies.pkl", "wb"))
+        print("Cookies saved")
     except:
         print("Error saving cookies to 'cookies.pkl'.")
 
@@ -191,10 +198,9 @@ def main():
 
     links = config.get('links', 'target_links').split('\n')[1:]
     for link in links:
-        all, soup, results = get_insights(driver, link)
-        save_debug_info(all, soup, results, link)
-
-    save_cookies(driver)
+        if get_insights(driver, link) != None:
+            insight_info = get_insights(driver, link)
+            save_debug_info(insight_info, link)
 
     driver.quit()
 
